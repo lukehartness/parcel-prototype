@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ownership Paths</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 16px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .screen {
+            display: none;
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1 {
+            color: #2d3748;
+            font-size: 24px;
+            margin-bottom: 8px;
+            line-height: 1.3;
+        }
+
+        .subtitle {
+            color: #718096;
+            font-size: 15px;
+            margin-bottom: 24px;
+            line-height: 1.4;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 10px;
+            font-size: 15px;
+        }
+
+        select {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.2s;
+            background: white;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%234a5568' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .state-selector-wrapper {
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .state-search {
+            width: 100%;
+            padding: 14px 16px;
+            border: none;
+            border-bottom: 2px solid #e2e8f0;
+            font-size: 16px;
+            background: #f7fafc;
+        }
+
+        .state-search:focus {
+            outline: none;
+            background: white;
+        }
+
+        .state-list {
+            max-height: 300px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .state-item {
+            padding: 16px;
+            border-bottom: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 56px;
+        }
+
+        .state-item:last-child {
+            border-bottom: none;
+        }
+
+        .state-item:active {
+            background: #edf2f7;
+        }
+
+        .state-item.selected {
+            background: #e6f2ff;
+        }
+
+        .state-item-name {
+            font-size: 16px;
+            color: #2d3748;
+        }
+
+        .state-item-code {
+            font-size: 13px;
+            color: #718096;
+            margin-left: 8px;
+        }
+
+        .state-item-check {
+            width: 24px;
+            height: 24px;
+            border: 2px solid #cbd5e0;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .state-item.selected .state-item-check {
+            background: #667eea;
+            border-color: #667eea;
+        }
+
+        .state-item.selected .state-item-check::after {
+            content: "✓";
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .state-selection-info {
+            padding: 12px 16px;
+            background: #f7fafc;
+            font-size: 14px;
+            color: #718096;
+            text-align: center;
+        }
+
+        .county-refinement {
+            margin-top: 16px;
+            padding: 16px;
+            background: #f7fafc;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .county-refinement.show {
+            display: block;
+        }
+
+        .county-refinement label {
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .button-primary {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 17px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 12px;
+            min-height: 56px;
+        }
+
+        .button-primary:active {
+            transform: scale(0.98);
+        }
+
+        .button-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .button-secondary {
+            width: 100%;
+            padding: 16px;
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 12px;
+            min-height: 56px;
+        }
+
+        .button-secondary:active {
+            background: #f7fafc;
+        }
+
+        .path-card {
+            background: #f7fafc;
+            border-left: 4px solid #667eea;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        .path-card h3 {
+            color: #2d3748;
+            font-size: 17px;
+            margin-bottom: 10px;
+        }
+
+        .path-card p {
+            color: #4a5568;
+            line-height: 1.6;
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+
+        .path-card .highlight {
+            color: #667eea;
+            font-weight: 600;
+            font-size: 19px;
+        }
+
+        .cta-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 24px;
+            border-radius: 12px;
+            text-align: center;
+            margin-top: 24px;
+        }
+
+        .cta-box h3 {
+            font-size: 19px;
+            margin-bottom: 10px;
+        }
+
+        .cta-box p {
+            margin-bottom: 16px;
+            opacity: 0.9;
+            font-size: 15px;
+        }
+
+        .cta-box button {
+            background: white;
+            color: #667eea;
+            padding: 14px 28px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            min-height: 48px;
+        }
+
+        .cta-box button:active {
+            transform: scale(0.98);
+        }
+
+        .partner-card {
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            min-height: 80px;
+        }
+
+        .partner-card:active {
+            transform: scale(0.98);
+        }
+
+        .partner-card.selected {
+            border-color: #667eea;
+            background: #e6f2ff;
+        }
+
+        .partner-card.selected::before {
+            content: "✓";
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 32px;
+            height: 32px;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .partner-name {
+            font-size: 17px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+
+        .partner-detail {
+            font-size: 14px;
+            color: #4a5568;
+            margin-bottom: 6px;
+            line-height: 1.4;
+        }
+
+        .impact-hint {
+            margin-top: 12px;
+            padding: 12px;
+            background: #e6fffa;
+            border-left: 3px solid #38b2ac;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #234e52;
+            line-height: 1.4;
+        }
+
+        .selection-count {
+            text-align: center;
+            color: #718096;
+            font-size: 15px;
+            margin-top: 16px;
+            padding: 12px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 14px 24px;
+            border-radius: 10px;
+            font-size: 17px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .status-viable {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .status-strained {
+            background: #fefcbf;
+            color: #744210;
+        }
+
+        .explanation {
+            background: #edf2f7;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            line-height: 1.6;
+            color: #2d3748;
+            font-size: 15px;
+        }
+
+        .collapsible {
+            margin-top: 20px;
+        }
+
+        .collapsible-header {
+            background: #f7fafc;
+            padding: 18px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #4a5568;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            min-height: 56px;
+            font-size: 15px;
+        }
+
+        .collapsible-header:active {
+            background: #edf2f7;
+        }
+
+        .collapsible-content {
+            display: none;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 0 0 10px 10px;
+            margin-top: -10px;
+        }
+
+        .collapsible-content.show {
+            display: block;
+        }
+
+        .detail-item {
+            margin-bottom: 14px;
+            padding-left: 20px;
+            position: relative;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .detail-item::before {
+            content: "•";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .group-members {
+            background: #f7fafc;
+            padding: 16px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .group-members h3 {
+            font-size: 16px;
+            color: #2d3748;
+            margin-bottom: 12px;
+        }
+
+        .member-tag {
+            display: inline-block;
+            background: white;
+            padding: 8px 14px;
+            border-radius: 8px;
+            margin-right: 8px;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #4a5568;
+            border: 1px solid #e2e8f0;
+        }
+
+        .link-secondary {
+            display: inline-block;
+            margin-top: 20px;
+            color: #667eea;
+            text-decoration: none;
+            font-size: 15px;
+            border-bottom: 1px solid transparent;
+            padding: 10px 0;
+        }
+
+        .link-secondary:active {
+            opacity: 0.7;
+        }
+
+        /* Desktop responsive */
+        @media (min-width: 768px) {
+            body {
+                padding: 32px;
+            }
+
+            .screen {
+                padding: 40px;
+            }
+
+            h1 {
+                font-size: 28px;
+            }
+
+            .state-item:hover {
+                background: #edf2f7;
+            }
+
+            .state-item.selected:hover {
+                background: #e6f2ff;
+            }
+
+            .button-primary:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+            }
+
+            .button-primary:hover:disabled {
+                transform: none;
+                box-shadow: none;
+            }
+
+            .button-secondary:hover {
+                background: #f7fafc;
+            }
+
+            .partner-card:hover {
+                border-color: #cbd5e0;
+                transform: translateX(4px);
+            }
+
+            .partner-card.selected:hover {
+                border-color: #667eea;
+            }
+
+            .collapsible-header:hover {
+                background: #edf2f7;
+            }
+
+            .link-secondary:hover {
+                border-bottom-color: #667eea;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Screen 1: Your Profile -->
+        <div id="screen1" class="screen active">
+            <h1>Your Profile</h1>
+            <p class="subtitle">Tell us about your real estate goals and capacity</p>
+
+            <div class="form-group">
+                <label>Capital Range</label>
+                <select id="capitalRange">
+                    <option value="0-50k">$0 - $50,000</option>
+                    <option value="50-100k" selected>$50,000 - $100,000</option>
+                    <option value="100-200k">$100,000 - $200,000</option>
+                    <option value="200k+">$200,000+</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Monthly Comfort Range</label>
+                <select id="monthlyRange">
+                    <option value="0-500">$0 - $500</option>
+                    <option value="500-1000">$500 - $1,000</option>
+                    <option value="1000-2000" selected>$1,000 - $2,000</option>
+                    <option value="2000+">$2,000+</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Geography Focus (Select 1-3 states)</label>
+                <div class="state-selector-wrapper">
+                    <input type="text" 
+                           class="state-search" 
+                           id="stateSearch" 
+                           placeholder="Search states..."
+                           autocomplete="off">
+                    <div class="state-list" id="stateList">
+                        <!-- States will be inserted here -->
+                    </div>
+                </div>
+                <div class="state-selection-info" id="stateSelectionInfo">0 selected (max 3)</div>
+                
+                <div class="county-refinement" id="countyRefinement">
+                    <label>Refine by county (optional)</label>
+                    <select id="countySelect">
+                        <option value="">All counties</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Intent</label>
+                <select id="intent">
+                    <option value="live">Live (primary residence)</option>
+                    <option value="invest" selected>Invest (rental income)</option>
+                    <option value="mixed">Mixed (vacation + rental)</option>
+                </select>
+            </div>
+
+            <button class="button-primary" onclick="goToSnapshot()" id="seeOptionsBtn" disabled>See Your Options</button>
+        </div>
+
+        <!-- Screen 2: Ownership Snapshot -->
+        <div id="screen2" class="screen">
+            <h1>Your Ownership Snapshot</h1>
+            <p class="subtitle">Here's what's realistically available to you</p>
+
+            <div class="path-card">
+                <h3>Solo Ownership</h3>
+                <p>You can likely afford a property up to <span class="highlight" id="soloMax">$250k</span> in <span id="snapshotGeography">your selected states</span>.</p>
+                <p style="color: #718096; font-size: 14px;">This could be a small condo or a starter home.</p>
+            </div>
+
+            <div class="path-card">
+                <h3>Shared Living (Co-ownership)</h3>
+                <p>Co-owning with 1-2 partners could increase your purchasing power to <span class="highlight">$500k-$750k</span>.</p>
+                <p style="color: #718096; font-size: 14px;">This unlocks larger homes, better locations, or raw land opportunities.</p>
+            </div>
+
+            <div class="path-card">
+                <h3>Investment-Only Participation</h3>
+                <p>You could participate as a minority partner in an investment property, contributing <span class="highlight" id="investmentAmount">$50k-$100k</span>.</p>
+                <p style="color: #718096; font-size: 14px;">No need to live on-site; earn passive income from rental returns.</p>
+            </div>
+
+            <div class="cta-box">
+                <h3>Curious about partnering?</h3>
+                <p>See how adding compatible partners could change your options</p>
+                <button onclick="goToPartners()">Explore Group Scenarios</button>
+            </div>
+
+            <button class="button-secondary" onclick="goToScreen1()">← Back</button>
+        </div>
+
+        <!-- Screen 3: Explore Group Scenarios -->
+        <div id="screen3" class="screen">
+            <h1>Explore Group Scenarios</h1>
+            <p class="subtitle">See how partnering could change your purchasing power</p>
+
+            <div id="partnerCards">
+                <!-- Partner cards will be inserted here -->
+            </div>
+
+            <p class="selection-count" id="selectionCount">0 selected (max 3)</p>
+
+            <button class="button-primary" onclick="goToViability()" id="testGroupBtn" disabled>Test This Group</button>
+            <button class="button-secondary" onclick="goToSnapshot()">← Back to Snapshot</button>
+        </div>
+
+        <!-- Screen 4: Group Viability -->
+        <div id="screen4" class="screen">
+            <h1>Group Viability</h1>
+            <p class="subtitle">Here's how this group looks</p>
+
+            <div class="group-members" id="groupMembers">
+                <!-- Group member tags will be inserted here -->
+            </div>
+
+            <div id="viabilityStatus">
+                <!-- Status badge will be inserted here -->
+            </div>
+
+            <div class="explanation" id="explanation">
+                <!-- Explanation will be inserted here -->
+            </div>
+
+            <div class="collapsible">
+                <div class="collapsible-header" onclick="toggleCollapsible()">
+                    <span>What's driving this?</span>
+                    <span id="collapseIcon">▼</span>
+                </div>
+                <div class="collapsible-content" id="collapsibleContent">
+                    <!-- Details will be inserted here -->
+                </div>
+            </div>
+
+            <a href="#" class="link-secondary" onclick="showCalculator(); return false;">→ Open detailed calculator</a>
+
+            <button class="button-secondary" onclick="goToScreen1()" style="margin-top: 24px;">← Start Over</button>
+        </div>
+    </div>
+
+    <script>
+        // ===== US STATES DATA =====
+        const US_STATES = [
+            { code: 'AL', name: 'Alabama' },
+            { code: 'AK', name: 'Alaska' },
+            { code: 'AZ', name: 'Arizona' },
+            { code: 'AR', name: 'Arkansas' },
+            { code: 'CA', name: 'California' },
+            { code: 'CO', name: 'Colorado' },
+            { code: 'CT', name: 'Connecticut' },
+            { code: 'DE', name: 'Delaware' },
+            { code: 'FL', name: 'Florida' },
+            { code: 'GA', name: 'Georgia' },
+            { code: 'HI', name: 'Hawaii' },
+            { code: 'ID', name: 'Idaho' },
+            { code: 'IL', name: 'Illinois' },
+            { code: 'IN', name: 'Indiana' },
+            { code: 'IA', name: 'Iowa' },
+            { code: 'KS', name: 'Kansas' },
+            { code: 'KY', name: 'Kentucky' },
+            { code: 'LA', name: 'Louisiana' },
+            { code: 'ME', name: 'Maine' },
+            { code: 'MD', name: 'Maryland' },
+            { code: 'MA', name: 'Massachusetts' },
+            { code: 'MI', name: 'Michigan' },
+            { code: 'MN', name: 'Minnesota' },
+            { code: 'MS', name: 'Mississippi' },
+            { code: 'MO', name: 'Missouri' },
+            { code: 'MT', name: 'Montana' },
+            { code: 'NE', name: 'Nebraska' },
+            { code: 'NV', name: 'Nevada' },
+            { code: 'NH', name: 'New Hampshire' },
+            { code: 'NJ', name: 'New Jersey' },
+            { code: 'NM', name: 'New Mexico' },
+            { code: 'NY', name: 'New York' },
+            { code: 'NC', name: 'North Carolina' },
+            { code: 'ND', name: 'North Dakota' },
+            { code: 'OH', name: 'Ohio' },
+            { code: 'OK', name: 'Oklahoma' },
+            { code: 'OR', name: 'Oregon' },
+            { code: 'PA', name: 'Pennsylvania' },
+            { code: 'RI', name: 'Rhode Island' },
+            { code: 'SC', name: 'South Carolina' },
+            { code: 'SD', name: 'South Dakota' },
+            { code: 'TN', name: 'Tennessee' },
+            { code: 'TX', name: 'Texas' },
+            { code: 'UT', name: 'Utah' },
+            { code: 'VT', name: 'Vermont' },
+            { code: 'VA', name: 'Virginia' },
+            { code: 'WA', name: 'Washington' },
+            { code: 'WV', name: 'West Virginia' },
+            { code: 'WI', name: 'Wisconsin' },
+            { code: 'WY', name: 'Wyoming' }
+        ];
+
+        // ===== MOCK COUNTY DATA =====
+        const MOCK_COUNTIES = {
+            'CA': ['Alameda', 'Los Angeles', 'Orange', 'Sacramento', 'San Diego', 'San Francisco', 'Santa Clara'],
+            'TX': ['Bexar', 'Dallas', 'Harris', 'Tarrant', 'Travis'],
+            'FL': ['Broward', 'Hillsborough', 'Miami-Dade', 'Orange', 'Palm Beach'],
+            'NY': ['Bronx', 'Kings', 'Manhattan', 'Queens', 'Suffolk'],
+            'AR': ['Benton', 'Pulaski', 'Washington'],
+            'TN': ['Davidson', 'Knox', 'Shelby']
+        };
+
+        // ===== MOCK PARTNER DATA =====
+        const MOCK_PARTNERS = [
+            {
+                id: 'partner-a',
+                name: 'Partner A',
+                capital: '$100k - $200k',
+                geography: ['CA', 'NV'],
+                intent: 'Invest',
+                impact: 'Group max price increases to $600k'
+            },
+            {
+                id: 'partner-b',
+                name: 'Partner B',
+                capital: '$50k - $100k',
+                geography: ['CA', 'OR'],
+                intent: 'Mixed',
+                impact: 'Group max price increases to $450k'
+            },
+            {
+                id: 'partner-c',
+                name: 'Partner C',
+                capital: '$200k+',
+                geography: ['CA', 'WA', 'OR'],
+                intent: 'Invest',
+                impact: 'Group max price increases to $800k'
+            },
+            {
+                id: 'partner-d',
+                name: 'Partner D',
+                capital: '$50k - $100k',
+                geography: ['CA'],
+                intent: 'Invest',
+                impact: 'Group max price increases to $500k'
+            },
+            {
+                id: 'partner-e',
+                name: 'Partner E',
+                capital: '$100k - $200k',
+                geography: ['CA', 'AZ'],
+                intent: 'Live',
+                impact: 'Group max price increases to $550k'
+            }
+        ];
+
+        // ===== STATE =====
+        let userProfile = {
+            capital: '',
+            monthly: '',
+            states: [],
+            county: '',
+            intent: ''
+        };
+        let selectedPartners = [];
+        let filteredStates = [...US_STATES];
+
+        // ===== INITIALIZE STATE LIST =====
+        function initializeStateList() {
+            renderStateList(US_STATES);
+
+            // Setup search
+            document.getElementById('stateSearch').addEventListener('input', handleStateSearch);
+        }
+
+        function renderStateList(states) {
+            const list = document.getElementById('stateList');
+            list.innerHTML = states.map(state => `
+                <div class="state-item" data-code="${state.code}" onclick="toggleState('${state.code}')">
+                    <div>
+                        <span class="state-item-name">${state.name}</span>
+                        <span class="state-item-code">(${state.code})</span>
+                    </div>
+                    <div class="state-item-check"></div>
+                </div>
+            `).join('');
+
+            // Re-apply selected states
+            userProfile.states.forEach(code => {
+                const item = list.querySelector(`[data-code="${code}"]`);
+                if (item) item.classList.add('selected');
+            });
+        }
+
+        function handleStateSearch(event) {
+            const query = event.target.value.toLowerCase();
+            filteredStates = US_STATES.filter(state => 
+                state.name.toLowerCase().includes(query) || 
+                state.code.toLowerCase().includes(query)
+            );
+            renderStateList(filteredStates);
+        }
+
+        function toggleState(stateCode) {
+            const index = userProfile.states.indexOf(stateCode);
+            const item = document.querySelector(`[data-code="${stateCode}"]`);
+
+            if (index > -1) {
+                // Deselect
+                userProfile.states.splice(index, 1);
+                item.classList.remove('selected');
+            } else {
+                // Select (max 3)
+                if (userProfile.states.length < 3) {
+                    userProfile.states.push(stateCode);
+                    item.classList.add('selected');
+                }
+            }
+
+            updateStateSelection();
+        }
+
+        function updateStateSelection() {
+            const count = userProfile.states.length;
+            document.getElementById('stateSelectionInfo').textContent = `${count} selected (max 3)`;
+            document.getElementById('seeOptionsBtn').disabled = count === 0;
+
+            // Show county refinement if exactly 1 state selected
+            const countyDiv = document.getElementById('countyRefinement');
+            if (count === 1) {
+                const selectedState = userProfile.states[0];
+                const counties = MOCK_COUNTIES[selectedState] || [];
+                
+                if (counties.length > 0) {
+                    const countySelect = document.getElementById('countySelect');
+                    countySelect.innerHTML = '<option value="">All counties</option>' +
+                        counties.map(county => `<option value="${county}">${county} County</option>`).join('');
+                    countyDiv.classList.add('show');
+                } else {
+                    countyDiv.classList.remove('show');
+                }
+            } else {
+                countyDiv.classList.remove('show');
+                userProfile.county = '';
+            }
+        }
+
+        // ===== SCREEN 1 → 2 =====
+        function goToSnapshot() {
+            if (userProfile.states.length === 0) return;
+
+            // Capture user profile
+            userProfile.capital = document.getElementById('capitalRange').value;
+            userProfile.monthly = document.getElementById('monthlyRange').value;
+            userProfile.intent = document.getElementById('intent').value;
+            userProfile.county = document.getElementById('countySelect').value;
+
+            // Update snapshot with user data
+            const stateNames = userProfile.states.map(code => {
+                const state = US_STATES.find(s => s.code === code);
+                return state ? state.name : code;
+            });
+
+            let geographyText = stateNames.join(', ');
+            if (userProfile.county) {
+                geographyText = `${userProfile.county} County, ${stateNames[0]}`;
+            }
+
+            document.getElementById('snapshotGeography').textContent = geographyText;
+
+            // Calculate solo max based on capital range (mock logic)
+            const soloMaxValues = {
+                '0-50k': '$150k',
+                '50-100k': '$250k',
+                '100-200k': '$400k',
+                '200k+': '$600k'
+            };
+            document.getElementById('soloMax').textContent = soloMaxValues[userProfile.capital] || '$250k';
+
+            // Calculate investment amount
+            const investmentValues = {
+                '0-50k': '$20k-$50k',
+                '50-100k': '$50k-$100k',
+                '100-200k': '$100k-$200k',
+                '200k+': '$200k+'
+            };
+            document.getElementById('investmentAmount').textContent = investmentValues[userProfile.capital] || '$50k-$100k';
+
+            showScreen('screen2');
+        }
+
+        // ===== SCREEN 2 → 3 =====
+        function goToPartners() {
+            renderPartnerCards();
+            showScreen('screen3');
+        }
+
+        function renderPartnerCards() {
+            const container = document.getElementById('partnerCards');
+            container.innerHTML = MOCK_PARTNERS.map(partner => {
+                const partnerStates = partner.geography.map(code => {
+                    const state = US_STATES.find(s => s.code === code);
+                    return state ? state.name : code;
+                }).join(', ');
+
+                return `
+                    <div class="partner-card" onclick="togglePartner('${partner.id}')">
+                        <div class="partner-name">${partner.name}</div>
+                        <div class="partner-detail"><strong>Capital:</strong> ${partner.capital}</div>
+                        <div class="partner-detail"><strong>Geography:</strong> ${partnerStates}</div>
+                        <div class="partner-detail"><strong>Intent:</strong> ${partner.intent}</div>
+                        <div class="impact-hint"><strong>Impact:</strong> ${partner.impact}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function togglePartner(partnerId) {
+            const card = event.currentTarget;
+            const index = selectedPartners.indexOf(partnerId);
+
+            if (index > -1) {
+                selectedPartners.splice(index, 1);
+                card.classList.remove('selected');
+            } else {
+                if (selectedPartners.length < 3) {
+                    selectedPartners.push(partnerId);
+                    card.classList.add('selected');
+                }
+            }
+
+            updateSelectionCount();
+        }
+
+        function updateSelectionCount() {
+            const count = selectedPartners.length;
+            document.getElementById('selectionCount').textContent = `${count} selected (max 3)`;
+            document.getElementById('testGroupBtn').disabled = count === 0;
+        }
+
+        // ===== SCREEN 3 → 4 =====
+        function goToViability() {
+            if (selectedPartners.length === 0) return;
+
+            const viability = calculateViability();
+            renderGroupMembers();
+            renderViability(viability);
+
+            showScreen('screen4');
+        }
+
+        function calculateViability() {
+            const numPartners = selectedPartners.length;
+            const hasPartnerA = selectedPartners.includes('partner-a');
+            const hasPartnerC = selectedPartners.includes('partner-c');
+            const hasPartnerD = selectedPartners.includes('partner-d');
+
+            if (hasPartnerA && hasPartnerD) {
+                return {
+                    status: 'viable',
+                    title: 'Likely Viable',
+                    explanation: 'This group has strong financial alignment and shared investment goals. The capital ranges overlap well, and everyone is focused on compatible geographies. You should be able to find a property that works for all members.',
+                    details: [
+                        'Combined capital: $200k-$400k (sufficient for most properties in your target states)',
+                        'All members have investment intent (reduces lifestyle conflicts)',
+                        'Geographic preferences are compatible',
+                        'Monthly payment capacity is balanced across the group'
+                    ]
+                };
+            }
+
+            if (hasPartnerC && numPartners === 1) {
+                return {
+                    status: 'strained',
+                    title: 'Strained but Possible',
+                    explanation: 'This group has a significant capital imbalance. Partner C has much higher financial capacity than you, which could create tension around property selection and decision-making. Consider adding another mid-range partner to balance the group.',
+                    details: [
+                        'Capital imbalance: Partner C has 2-4x your available capital',
+                        'May lead to disagreements on property price range',
+                        'Allocation solver would likely require subsidy arrangements',
+                        'Consider discussing expectations around equity splits early'
+                    ]
+                };
+            }
+
+            if (numPartners === 3 && selectedPartners.includes('partner-e')) {
+                return {
+                    status: 'strained',
+                    title: 'Strained but Possible',
+                    explanation: 'This group has mixed intentions: some want to live on the property, others want pure investment. This can work, but requires very clear agreements about usage rights, rental income splits, and exit strategies.',
+                    details: [
+                        'Mixed intent: "Live" vs "Invest" creates different priorities',
+                        'Will need detailed usage agreements (who can stay when?)',
+                        'Rental income expectations may not align',
+                        'Exit timing could be contentious (one wants to sell, others don\'t)'
+                    ]
+                };
+            }
+
+            if (numPartners === 1) {
+                return {
+                    status: 'viable',
+                    title: 'Likely Viable',
+                    explanation: 'A two-person partnership is often the simplest and most manageable structure. You have good financial compatibility and aligned goals. Decision-making should be straightforward.',
+                    details: [
+                        'Small group size reduces coordination complexity',
+                        'Financial alignment looks strong',
+                        'Geographic preferences are compatible',
+                        'Consider formalizing decision-making process (50/50 or other)'
+                    ]
+                };
+            }
+
+            return {
+                status: 'viable',
+                title: 'Likely Viable',
+                explanation: 'This group appears financially compatible and has reasonable alignment on goals. You should be able to work together effectively, though you may need to negotiate on specific property choices.',
+                details: [
+                    'Financial capacity is reasonably balanced',
+                    'Geographic preferences overlap',
+                    'Intent alignment is good',
+                    'Group size is manageable for decision-making'
+                ]
+            };
+        }
+
+        function renderGroupMembers() {
+            const container = document.getElementById('groupMembers');
+            const members = ['You', ...selectedPartners.map(id => {
+                const partner = MOCK_PARTNERS.find(p => p.id === id);
+                return partner.name;
+            })];
+
+            container.innerHTML = `
+                <h3>Your Group</h3>
+                ${members.map(name => `<span class="member-tag">${name}</span>`).join('')}
+            `;
+        }
+
+        function renderViability(viability) {
+            const statusClass = viability.status === 'viable' ? 'status-viable' : 'status-strained';
+
+            document.getElementById('viabilityStatus').innerHTML = `
+                <div class="status-badge ${statusClass}">${viability.title}</div>
+            `;
+
+            document.getElementById('explanation').textContent = viability.explanation;
+
+            document.getElementById('collapsibleContent').innerHTML = viability.details.map(detail => `
+                <div class="detail-item">${detail}</div>
+            `).join('');
+        }
+
+        // ===== UTILITIES =====
+        function toggleCollapsible() {
+            const content = document.getElementById('collapsibleContent');
+            const icon = document.getElementById('collapseIcon');
+
+            if (content.classList.contains('show')) {
+                content.classList.remove('show');
+                icon.textContent = '▼';
+            } else {
+                content.classList.add('show');
+                icon.textContent = '▲';
+            }
+        }
+
+        function showCalculator() {
+            alert('This would open the detailed allocation calculator (not implemented in this prototype).\n\nIn the full product, this would show:\n- Exact cost shares\n- Down payment breakdown\n- Monthly payment allocation\n- Subsidy requirements');
+        }
+
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(screen => {
+                screen.classList.remove('active');
+            });
+            document.getElementById(screenId).classList.add('active');
+            window.scrollTo(0, 0);
+        }
+
+        function goToScreen1() {
+            selectedPartners = [];
+            showScreen('screen1');
+        }
+
+        // ===== INITIALIZE =====
+        initializeStateList();
+    </script>
+</body>
+</html>
